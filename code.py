@@ -209,6 +209,15 @@ def update_leds():
             color = hex_to_rgb(color)
         else: 
             color = config["led_color"][i] if pressed else config["released_color"][i]
+        
+        # Safety check: ensure color is a tuple/list before assignment
+        if isinstance(color, str):
+            print(f"Warning: LED color for {name} is still a string: {color}")
+            color = hex_to_rgb(color)
+        elif not isinstance(color, (tuple, list)):
+            print(f"Warning: Invalid LED color type for {name}: {type(color)}")
+            color = (0, 0, 0)  # Default to black
+            
         leds[i] = color
     leds.show()
 
