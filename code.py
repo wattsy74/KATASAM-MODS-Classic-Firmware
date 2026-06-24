@@ -210,27 +210,32 @@ def update_tilt_wave():
     return True
 
 def update_guide_mode_leds():
-    """Render guide mode LED feedback - show full board with slot's preset colors"""
+    """Render guide mode LED feedback - show full board with slot's preset colors (released state)"""
     global current_guide_slot
     if leds is None or current_guide_slot not in slot_presets:
         return
     
     slot_data = slot_presets[current_guide_slot]
     
-    # Render all buttons with their pressed colors from this slot's preset
+    # Render all buttons with their released colors from this slot's preset
     for button_name, element_id_prefix in BUTTON_TO_ELEMENT_ID.items():
         led_index = config.get(f"{button_name}_led")
         if led_index is None:
             continue
         
-        # Look up the pressed color from the preset
-        # Try both with and without "-pressed" suffix
-        color_key = f"{element_id_prefix}-pressed"
-        hex_color = slot_data.get(color_key)
+        # Look up the released color from the preset
+        hex_color = None
         
-        if hex_color is None:
-            # Fallback to non-suffixed key
-            hex_color = slot_data.get(element_id_prefix)
+        # For strum buttons, try "-released" or "-active"
+        if "strum" in element_id_prefix:
+            hex_color = slot_data.get(f"{element_id_prefix}-released")
+            if hex_color is None:
+                hex_color = slot_data.get(f"{element_id_prefix}-active")
+        else:
+            # For frets, try "-released" first, then "-pressed" as fallback
+            hex_color = slot_data.get(f"{element_id_prefix}-released")
+            if hex_color is None:
+                hex_color = slot_data.get(f"{element_id_prefix}-pressed")
         
         if hex_color:
             # Convert hex to RGB and set LED
@@ -245,7 +250,7 @@ def update_guide_mode_leds():
             leds[led_index] = (0, 0, 0)
     
     leds.show()
-    print(f"[GUIDE] Displaying preset colors for slot {current_guide_slot}")
+    print(f"[GUIDE] Displaying released colors for slot {current_guide_slot}")
 
 def update_leds():
     """Update normal LED colors based on button states and config"""
