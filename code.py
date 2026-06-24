@@ -415,8 +415,25 @@ def poll_inputs():
                             print(f"[GUIDE MODE] Entered! Current slot: {current_guide_slot}")
                         guide_button_press_time = None
             
+            # Guide Mode: LEFT/RIGHT slot stepping
+            if guide_mode_active and pressed:  # Only on press, not release
+                if name == "LEFT":
+                    # Previous slot (wrap 1 → 6)
+                    current_guide_slot = current_guide_slot - 1 if current_guide_slot > 1 else 6
+                    guide_mode_last_action_time = time.monotonic()
+                    print(f"[GUIDE] Slot stepped LEFT: {current_guide_slot}")
+                    changed = True
+                elif name == "RIGHT":
+                    # Next slot (wrap 6 → 1)
+                    current_guide_slot = current_guide_slot + 1 if current_guide_slot < 6 else 1
+                    guide_mode_last_action_time = time.monotonic()
+                    print(f"[GUIDE] Slot stepped RIGHT: {current_guide_slot}")
+                    changed = True
+            
             if name in BUTTON_MAP:
-                (gp.press if pressed else gp.release)(BUTTON_MAP[name])
+                # Don't send LEFT/RIGHT to gamepad when in guide mode (used for slot stepping)
+                if not (guide_mode_active and name in ("LEFT", "RIGHT")):
+                    (gp.press if pressed else gp.release)(BUTTON_MAP[name])
             
             # Check for tilt sensor activation
             if name == "TILT" and pressed and not previous_tilt_state:
