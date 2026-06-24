@@ -218,12 +218,12 @@ def update_leds():
             color = hex_to_rgb(color)
         else: 
             color = config["led_color"][i] if pressed else config["released_color"][i]
+            # Convert hex string to RGB tuple if needed
+            if isinstance(color, str):
+                color = hex_to_rgb(color)
         
         # Safety check: ensure color is a tuple/list before assignment
-        if isinstance(color, str):
-            print(f"Warning: LED color for {name} is still a string: {color}")
-            color = hex_to_rgb(color)
-        elif not isinstance(color, (tuple, list)):
+        if not isinstance(color, (tuple, list)):
             print(f"Warning: Invalid LED color type for {name}: {type(color)}")
             color = (0, 0, 0)  # Default to black
             
@@ -320,18 +320,20 @@ def poll_inputs():
             # Special handling for GUIDE button - detect entry before sending to gamepad
             if name == "GUIDE":
                 guide_button_pressed = pressed
-                current_time = time.time()
+                current_time = time.monotonic()  # Use monotonic() for CircuitPython timing
                 
                 if pressed:
                     # GUIDE button pressed
                     if guide_button_press_time is None:
                         guide_button_press_time = current_time
+                        print("[GUIDE] Button pressed - timing hold...")
                     
                     # Check for triple-press (3 quick taps)
                     if guide_last_press_time is not None:
                         time_since_last = current_time - guide_last_press_time
                         if time_since_last < GUIDE_TRIPLE_PRESS_TIMEOUT:
                             guide_triple_press_count += 1
+                            print(f"[GUIDE] Tap {guide_triple_press_count}/3 detected")
                             if guide_triple_press_count >= 3 and not guide_entry_detected:
                                 print("[GUIDE] Triple-press detected - Entry to Guide Mode!")
                                 guide_entry_detected = True
@@ -339,6 +341,7 @@ def poll_inputs():
                         else:
                             # Timeout - reset counter
                             guide_triple_press_count = 1
+                            print("[GUIDE] Tap timeout - counter reset")
                     else:
                         guide_triple_press_count = 1
                     
@@ -347,6 +350,7 @@ def poll_inputs():
                     # GUIDE button released - check hold time
                     if guide_button_press_time is not None:
                         hold_duration = current_time - guide_button_press_time
+                        print(f"[GUIDE] Button released after {hold_duration:.3f}s")
                         if hold_duration >= GUIDE_HOLD_DURATION and not guide_entry_detected:
                             print(f"[GUIDE] 1-second hold detected ({hold_duration:.2f}s) - Entry to Guide Mode!")
                             guide_entry_detected = True
