@@ -80,6 +80,15 @@ current_state = {k: False for k in buttons}
 user_presets = {}
 preset_colors = {}
 
+# Guide Button Input Detection Variables
+guide_button_pressed = False
+guide_button_press_time = None  # Time when GUIDE was first pressed (in seconds)
+guide_entry_detected = False  # Flag to avoid repeated detection
+guide_triple_press_count = 0  # Counter for triple-press detection
+guide_last_press_time = None  # Time of last guide button press (for triple-press timeout)
+GUIDE_HOLD_DURATION = 1.0  # 1 second hold to enter guide mode
+GUIDE_TRIPLE_PRESS_TIMEOUT = 0.5  # 500ms window for triple-press
+
 # Tilt Wave Effect Variables - Enhanced for dynamic 7-LED effect
 tilt_wave_enabled = config.get("tilt_wave_enabled", True)
 tilt_wave_active = False
@@ -298,7 +307,8 @@ def compute_hat():
         return 1 if u and r else 3 if d and r else 5 if d and l else 7 if u and l else 0 if u else 2 if r else 4 if d else 6 if l else 0x0F
 
 def poll_inputs():
-    global previous_tilt_state, previous_virtual_guide
+    global previous_tilt_state, previous_virtual_guide, guide_button_pressed, guide_button_press_time
+    global guide_entry_detected, guide_triple_press_count, guide_last_press_time
     changed = False
     
     for name, pin in buttons.items():
@@ -306,6 +316,42 @@ def poll_inputs():
         if pressed != current_state[name]:
             current_state[name] = pressed
             changed = True
+            
+            # Special handling for GUIDE button - detect entry before sending to gamepad
+            if name == "GUIDE":
+                guide_button_pressed = pressed
+                current_time = time.time()
+                
+                if pressed:
+                    # GUIDE button pressed
+                    if guide_button_press_time is None:
+                        guide_button_press_time = current_time
+                    
+                    # Check for triple-press (3 quick taps)
+                    if guide_last_press_time is not None:
+                        time_since_last = current_time - guide_last_press_time
+                        if time_since_last < GUIDE_TRIPLE_PRESS_TIMEOUT:
+                            guide_triple_press_count += 1
+                            if guide_triple_press_count >= 3 and not guide_entry_detected:
+                                print("[GUIDE] Triple-press detected - Entry to Guide Mode!")
+                                guide_entry_detected = True
+                                guide_triple_press_count = 0  # Reset counter
+                        else:
+                            # Timeout - reset counter
+                            guide_triple_press_count = 1
+                    else:
+                        guide_triple_press_count = 1
+                    
+                    guide_last_press_time = current_time
+                else:
+                    # GUIDE button released - check hold time
+                    if guide_button_press_time is not None:
+                        hold_duration = current_time - guide_button_press_time
+                        if hold_duration >= GUIDE_HOLD_DURATION and not guide_entry_detected:
+                            print(f"[GUIDE] 1-second hold detected ({hold_duration:.2f}s) - Entry to Guide Mode!")
+                            guide_entry_detected = True
+                        guide_button_press_time = None
+            
             if name in BUTTON_MAP:
                 (gp.press if pressed else gp.release)(BUTTON_MAP[name])
             
