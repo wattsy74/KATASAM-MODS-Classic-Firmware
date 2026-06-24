@@ -96,16 +96,6 @@ guide_mode_entry_time = None  # Time when guide mode was entered
 GUIDE_MODE_TIMEOUT = 30.0  # Exit guide mode after 30 seconds of inactivity
 guide_mode_last_action_time = None  # Track last button press for timeout
 
-# Slot LED indicator colors (for Strum LEDs during guide mode)
-SLOT_COLORS = [
-    (255, 0, 0),      # Slot 1 - Red
-    (255, 165, 0),    # Slot 2 - Orange
-    (255, 255, 0),    # Slot 3 - Yellow
-    (0, 255, 0),      # Slot 4 - Green
-    (0, 0, 255),      # Slot 5 - Blue
-    (128, 0, 128),    # Slot 6 - Purple
-]
-
 # Tilt Wave Effect Variables - Enhanced for dynamic 7-LED effect
 tilt_wave_enabled = config.get("tilt_wave_enabled", True)
 tilt_wave_active = False
@@ -220,27 +210,42 @@ def update_tilt_wave():
     return True
 
 def update_guide_mode_leds():
-    """Render guide mode LED feedback - light strum LEDs with slot color"""
+    """Render guide mode LED feedback - show full board with slot's preset colors"""
     global current_guide_slot
-    if leds is None:
+    if leds is None or current_guide_slot not in slot_presets:
         return
     
-    # All LEDs off except strum indicators
-    for i in range(len(leds)):
-        leds[i] = (0, 0, 0)
+    slot_data = slot_presets[current_guide_slot]
     
-    # Light both strum LEDs with the color of the current slot
-    slot_color = SLOT_COLORS[current_guide_slot - 1]  # 1-6 → 0-5 index
-    strum_up_led = config.get("STRUM_UP_led")
-    strum_down_led = config.get("STRUM_DOWN_led")
-    
-    if strum_up_led is not None:
-        leds[strum_up_led] = slot_color
-    if strum_down_led is not None:
-        leds[strum_down_led] = slot_color
+    # Render all buttons with their pressed colors from this slot's preset
+    for button_name, element_id_prefix in BUTTON_TO_ELEMENT_ID.items():
+        led_index = config.get(f"{button_name}_led")
+        if led_index is None:
+            continue
+        
+        # Look up the pressed color from the preset
+        # Try both with and without "-pressed" suffix
+        color_key = f"{element_id_prefix}-pressed"
+        hex_color = slot_data.get(color_key)
+        
+        if hex_color is None:
+            # Fallback to non-suffixed key
+            hex_color = slot_data.get(element_id_prefix)
+        
+        if hex_color:
+            # Convert hex to RGB and set LED
+            try:
+                color = hex_to_rgb(hex_color)
+                leds[led_index] = color
+            except Exception as e:
+                print(f"[GUIDE] Error setting LED {button_name}: {e}")
+                leds[led_index] = (0, 0, 0)
+        else:
+            # No color found - turn off LED
+            leds[led_index] = (0, 0, 0)
     
     leds.show()
-    print(f"[GUIDE] Slot {current_guide_slot}: {slot_color}")
+    print(f"[GUIDE] Displaying preset colors for slot {current_guide_slot}")
 
 def update_leds():
     """Update normal LED colors based on button states and config"""
@@ -288,6 +293,27 @@ try:
     preset_colors = user_presets.get("NewUserPreset1", {})
 except Exception as e:
     print("Could not load user presets:", e)
+
+# Load all 6 preset slots for guide mode display
+slot_presets = {}
+SLOT_NAMES = ["User 1", "User 2", "User 3", "User 4", "User 5", "User 6"]
+for slot_num, slot_name in enumerate(SLOT_NAMES, 1):
+    if slot_name in user_presets:
+        slot_presets[slot_num] = user_presets[slot_name]
+    else:
+        print(f"[WARNING] Slot {slot_num} ({slot_name}) not found in user_presets.json")
+        slot_presets[slot_num] = {}
+
+# Mapping from button names to element ID prefixes for preset color lookup
+BUTTON_TO_ELEMENT_ID = {
+    "GREEN_FRET": "green-fret",
+    "RED_FRET": "red-fret",
+    "YELLOW_FRET": "yellow-fret",
+    "BLUE_FRET": "blue-fret",
+    "ORANGE_FRET": "orange-fret",
+    "STRUM_UP": "strum-up",
+    "STRUM_DOWN": "strum-down",
+}
 
 # Load preset state (current active slot)
 try:
