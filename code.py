@@ -430,9 +430,23 @@ def poll_inputs():
                     print(f"[GUIDE] Slot stepped RIGHT: {current_guide_slot}")
                     changed = True
             
+            # Guide Mode: START button to confirm and save slot
+            if guide_mode_active and name == "START" and pressed:
+                # Save selected slot to preset_state.json
+                try:
+                    preset_state = {"active_slot": current_guide_slot}
+                    with open("/preset_state.json", "w") as f:
+                        json.dump(preset_state, f)
+                    print(f"[GUIDE MODE] Saved slot {current_guide_slot} to preset_state.json")
+                    guide_mode_active = False
+                    guide_entry_detected = False  # Allow re-entry
+                    print("[GUIDE MODE] Exiting guide mode")
+                except Exception as e:
+                    print(f"[GUIDE MODE] Error saving preset state: {e}")
+            
             if name in BUTTON_MAP:
-                # Don't send LEFT/RIGHT to gamepad when in guide mode (used for slot stepping)
-                if not (guide_mode_active and name in ("LEFT", "RIGHT")):
+                # Don't send LEFT/RIGHT/START to gamepad when in guide mode (used for navigation)
+                if not (guide_mode_active and name in ("LEFT", "RIGHT", "START")):
                     (gp.press if pressed else gp.release)(BUTTON_MAP[name])
             
             # Check for tilt sensor activation
