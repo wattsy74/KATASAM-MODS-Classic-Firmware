@@ -58,6 +58,21 @@ def write_preset_state_atomic(state):
     }
     return atomic_write_json(PRESET_STATE_FILE, safe_state)
 
+def is_valid_user_presets_structure(data):
+    if not isinstance(data, dict):
+        return False
+    for k, v in data.items():
+        if not isinstance(k, str):
+            return False
+        if not isinstance(v, dict):
+            return False
+        if k == "_metadata":
+            continue
+        key_lower = k.lower()
+        if not (key_lower.startswith("user ") or "preset" in key_lower):
+            return False
+    return True
+
 # ===== SERIAL OPERATION LED INDICATORS =====
 # Global variables to store LED states during serial operations
 _serial_indicator_active = False
@@ -749,15 +764,7 @@ def handle_serial(serial, config, raw_config, leds, buttons, whammy, current_sta
                                 
                                 # Validation for user_presets.json
                                 if filename == "/user_presets.json":
-                                    if (
-                                        isinstance(parsed, dict) and
-                                        all(
-                                            isinstance(v, dict) and (
-                                                (isinstance(k, str) and (k.lower().startswith("user ") or "preset" in k.lower()))
-                                            )
-                                            for k, v in parsed.items()
-                                        )
-                                    ):
+                                    if is_valid_user_presets_structure(parsed):
                                         ensure_parent_dir_exists(filename)
                                         if atomic_write_json(filename, parsed):
                                             serial.write(f"File {filename} written (atomic)\n".encode("utf-8"))
@@ -858,16 +865,7 @@ def handle_serial(serial, config, raw_config, leds, buttons, whammy, current_sta
                             # Validation for user_presets.json merge
                             merged = existing.copy()
                             merged.update(new_data)
-                            if (
-                                filename == "/user_presets.json" and
-                                isinstance(merged, dict) and
-                                all(
-                                    isinstance(v, dict) and (
-                                        (isinstance(k, str) and (k.lower().startswith("user ") or "preset" in k.lower()))
-                                    )
-                                    for k, v in merged.items()
-                                )
-                            ):
+                            if filename == "/user_presets.json" and is_valid_user_presets_structure(merged):
                                 ensure_parent_dir_exists(filename)
                                 if atomic_write_json(filename, merged):
                                     user_presets = merged
