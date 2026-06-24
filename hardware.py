@@ -40,3 +40,4 @@ def setup_leds(cfg):
     except Exception as e:
         print("NeoPixel init failed:", e)
         return None
+

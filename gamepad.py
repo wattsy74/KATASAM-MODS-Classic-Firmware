@@ -41,3 +41,4 @@ class CustomGamepad:
             self.device.send_report(report)
         except OSError:
             pass
+

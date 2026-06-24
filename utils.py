@@ -44,3 +44,4 @@ def load_config(raw, resolve_pin):
         else:
             conf[key] = value
     return conf
+

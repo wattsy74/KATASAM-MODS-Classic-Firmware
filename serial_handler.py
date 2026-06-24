@@ -232,7 +232,7 @@ def handle_serial(serial, config, raw_config, leds, buttons, whammy, current_sta
                     serial.write(b"PINDETECT:CANCELLED\n")
                     return buffer, mode, filename, file_lines, config, raw_config, leds, buttons, whammy, current_state, user_presets, preset_colors
 
-                # Preview LED command — always handled
+                # Preview LED command  always handled
                 if line.startswith("PREVIEWLED:"):
                     try:
                         _, led_name, hex_color = line.split(":")
@@ -720,7 +720,7 @@ def handle_serial(serial, config, raw_config, leds, buttons, whammy, current_sta
                                             f.write("\n")
                                     f.write("\n")  # Ensure file ends with newline
                                 serial.write(f"File {filename} written\n".encode("utf-8"))
-                                print(f"File {filename} written successfully ({line_count} lines) - v4.0.0 High-Speed Streaming ⚡")
+                                print(f"File {filename} written successfully ({line_count} lines) - v4.0.0 High-Speed Streaming ")
 
                         except Exception as e:
                             serial.write(f"ERROR: Failed to write {filename}: {e}\n".encode("utf-8"))
@@ -751,7 +751,7 @@ def handle_serial(serial, config, raw_config, leds, buttons, whammy, current_sta
                             mode = None
                             file_lines = []
 
-                # 🔧 User preset merge logic
+                #  User preset merge logic
                 elif mode == "merge_user":
                     if line == "END":
                         try:

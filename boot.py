@@ -435,7 +435,7 @@ def process_firmware_updates():
                     
                     # Special handling for config files
                     if filename.lower().endswith('.json') and ('config' in filename.lower() or 'preset' in filename.lower()):
-                        write_log(f"⚙️ Detected config file, using smart merge", log_file_path)
+                        write_log(f" Detected config file, using smart merge", log_file_path)
                         
                         if merge_config_file(update_path, target_path, log_file_path):
                             write_log(f"Config merged: {filename}", log_file_path)
@@ -671,3 +671,4 @@ else:
     # Firmware updates work via serial protocol with automatic processing at boot
 
 print(f"BGG Guitar Controller v{__version__} boot complete!")
+
