@@ -1,20 +1,20 @@
 FIRMWARE_VERSIONS = {
-    "code.py": "3.9.26",
-    "hardware.py": "3.9.26",
-    "utils.py": "3.9.26",
-    "gamepad.py": "3.9.26",
-    "serial_handler.py": "3.9.26",
-    "pin_detect.py": "3.9.26",
-    "boot.py": "3.9.26",
-    "demo_routine.py": "3.9.26",
-    "demo_state.py": "3.9.26"
+    "code.py": "5.0.0",
+    "hardware.py": "5.0.0",
+    "utils.py": "5.0.0",
+    "gamepad.py": "5.0.0",
+    "serial_handler.py": "5.0.0",
+    "pin_detect.py": "5.0.0",
+    "boot.py": "5.0.0",
+    "demo_routine.py": "5.0.0",
+    "demo_state.py": "5.0.0"
 }
 
-# BGG Firmware v3.9.26 - Smart Acknowledgment System
+# BGG Firmware v5.0.0 - Smart Acknowledgment System
 # - Enhanced device detection and communication
 # - Smart ACK messages for Windows app compatibility
 # - Conditional debug output prevents firmware corruption
-# - Maintains v3.9.26 stability with communication improvements
+# - Maintains v5.0.0 stability with communication improvements
 
 def get_firmware_versions():
     return FIRMWARE_VERSIONS
@@ -34,6 +34,7 @@ except ImportError:
     demo_state_available = False
 import time
 import json
+import os
 import board
 import microcontroller
 import analogio
@@ -79,6 +80,144 @@ def map_whammy(raw):
 current_state = {k: False for k in buttons}
 user_presets = {}
 preset_colors = {}
+PRESET_SLOT_COUNT = 6
+PRESET_STATE_FILE = "/preset_state.json"
+USER_PRESET_SLOTS = [f"User {i}" for i in range(1, PRESET_SLOT_COUNT + 1)]
+preset_state = {"schema_version": 1, "active_slot": 1, "default_slot": 1}
+preset_switch_mode = False
+preset_switch_guide_started = None
+selected_preset_slot = 1
+preset_switch_prev = {"LEFT": False, "RIGHT": False, "START": False}
+
+def clamp_slot(slot_index):
+    try:
+        slot = int(slot_index)
+    except Exception:
+        slot = 1
+    if slot < 1:
+        return 1
+    if slot > PRESET_SLOT_COUNT:
+        return PRESET_SLOT_COUNT
+    return slot
+
+def get_slot_key(slot_index):
+    return f"User {clamp_slot(slot_index)}"
+
+def load_json_safe(filepath, fallback):
+    try:
+        with open(filepath, "r") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else fallback
+    except Exception:
+        return fallback
+
+def atomic_write_json(filepath, data):
+    temp_path = filepath + ".tmp"
+    try:
+        with open(temp_path, "w") as f:
+            f.write(json.dumps(data))
+            f.write("\n")
+        try:
+            os.remove(filepath)
+        except Exception:
+            pass
+        os.rename(temp_path, filepath)
+        return True
+    except Exception as e:
+        print(f"Atomic write failed for {filepath}: {e}")
+        try:
+            os.remove(temp_path)
+        except Exception:
+            pass
+        return False
+
+def load_user_presets_safe():
+    presets = load_json_safe("/user_presets.json", {})
+    if not presets:
+        presets = {}
+    if "_metadata" not in presets:
+        presets["_metadata"] = {"version": "5.0.0", "description": "BumbleGum Guitar Controller User Presets", "lastUpdated": "2026-06-24"}
+    for slot in USER_PRESET_SLOTS:
+        if slot not in presets or not isinstance(presets.get(slot), dict):
+            presets[slot] = {}
+    return presets
+
+def load_preset_state_safe():
+    state = load_json_safe(PRESET_STATE_FILE, {})
+    if not isinstance(state, dict):
+        state = {}
+    normalized = {
+        "schema_version": 1,
+        "active_slot": clamp_slot(state.get("active_slot", 1)),
+        "default_slot": clamp_slot(state.get("default_slot", state.get("active_slot", 1)))
+    }
+    return normalized
+
+def save_preset_state_atomic(state):
+    safe_state = {
+        "schema_version": 1,
+        "active_slot": clamp_slot(state.get("active_slot", 1)),
+        "default_slot": clamp_slot(state.get("default_slot", 1))
+    }
+    return atomic_write_json(PRESET_STATE_FILE, safe_state)
+
+def apply_slot_to_preset_colors(slot_index, update_leds_now=True):
+    global preset_colors, selected_preset_slot
+    slot_key = get_slot_key(slot_index)
+    preset_colors = user_presets.get(slot_key, {}) if isinstance(user_presets, dict) else {}
+    selected_preset_slot = clamp_slot(slot_index)
+    if update_leds_now and leds is not None:
+        update_leds()
+    return preset_colors
+
+def preview_slot_leds(slot_index):
+    return apply_slot_to_preset_colors(slot_index, update_leds_now=True)
+
+def is_guide_pressed():
+    return current_state.get("GUIDE", False) or (current_state.get("UP", False) and current_state.get("DOWN", False))
+
+def release_all_gamepad_buttons():
+    for button_name, button_code in BUTTON_MAP.items():
+        try:
+            gp.release(button_code)
+        except Exception:
+            pass
+
+def enter_preset_switch_mode():
+    global preset_switch_mode, preset_switch_guide_started, selected_preset_slot
+    if preset_switch_mode:
+        return
+    preset_switch_mode = True
+    preset_switch_guide_started = None
+    selected_preset_slot = clamp_slot(preset_state.get("active_slot", preset_state.get("default_slot", 1)))
+    preset_switch_prev["LEFT"] = current_state.get("LEFT", False)
+    preset_switch_prev["RIGHT"] = current_state.get("RIGHT", False)
+    preset_switch_prev["START"] = current_state.get("START", False)
+    release_all_gamepad_buttons()
+    apply_slot_to_preset_colors(selected_preset_slot)
+
+def exit_preset_switch_mode(confirm=False):
+    global preset_switch_mode, preset_switch_guide_started
+    if confirm:
+        preset_state["active_slot"] = clamp_slot(selected_preset_slot)
+        preset_state["default_slot"] = clamp_slot(selected_preset_slot)
+        save_preset_state_atomic(preset_state)
+    preset_switch_mode = False
+    preset_switch_guide_started = None
+    preset_switch_prev["LEFT"] = current_state.get("LEFT", False)
+    preset_switch_prev["RIGHT"] = current_state.get("RIGHT", False)
+    preset_switch_prev["START"] = current_state.get("START", False)
+    release_all_gamepad_buttons()
+
+def step_preset_slot(delta):
+    global selected_preset_slot
+    selected_preset_slot = ((clamp_slot(selected_preset_slot) - 1 + delta) % PRESET_SLOT_COUNT) + 1
+    preset_state["active_slot"] = selected_preset_slot
+    preview_slot_leds(selected_preset_slot)
+
+def confirm_selected_preset_slot():
+    apply_slot_to_preset_colors(selected_preset_slot)
+    exit_preset_switch_mode(confirm=True)
 
 # Tilt Wave Effect Variables - Enhanced for dynamic 7-LED effect
 tilt_wave_enabled = config.get("tilt_wave_enabled", True)
@@ -225,9 +364,15 @@ file_lines = []
 last_whammy = None
 
 try:
-    with open("/user_presets.json", "r") as f:
-        user_presets = json.load(f)
-    preset_colors = user_presets.get("NewUserPreset1", {})
+    user_presets = load_user_presets_safe()
+    preset_state = load_preset_state_safe()
+    preset_colors = user_presets.get(get_slot_key(preset_state.get("default_slot", 1)), user_presets.get("User 1", {}))
+    selected_preset_slot = clamp_slot(preset_state.get("default_slot", 1))
+    try:
+        with open(PRESET_STATE_FILE, "r"):
+            pass
+    except Exception:
+        save_preset_state_atomic(preset_state)
 except Exception as e:
     print("Could not load user presets:", e)
 
@@ -289,7 +434,7 @@ def compute_hat():
         return 1 if u and r else 3 if d and r else 5 if d and l else 7 if u and l else 0 if u else 2 if r else 4 if d else 6 if l else 0x0F
 
 def poll_inputs():
-    global previous_tilt_state, previous_virtual_guide
+    global previous_tilt_state, previous_virtual_guide, preset_switch_guide_started
     changed = False
     
     for name, pin in buttons.items():
@@ -297,7 +442,7 @@ def poll_inputs():
         if pressed != current_state[name]:
             current_state[name] = pressed
             changed = True
-            if name in BUTTON_MAP:
+            if not preset_switch_mode and name in BUTTON_MAP:
                 (gp.press if pressed else gp.release)(BUTTON_MAP[name])
             
             # Check for tilt sensor activation
@@ -316,14 +461,45 @@ def poll_inputs():
     
     # Handle virtual GUIDE button state changes
     if virtual_guide_pressed != previous_virtual_guide:
-        if virtual_guide_pressed:
-            gp.press(BUTTON_MAP["GUIDE"])
-        else:
-            gp.release(BUTTON_MAP["GUIDE"])
+        if not preset_switch_mode:
+            if virtual_guide_pressed:
+                gp.press(BUTTON_MAP["GUIDE"])
+            else:
+                gp.release(BUTTON_MAP["GUIDE"])
         changed = True
         previous_virtual_guide = virtual_guide_pressed
+
+    guide_pressed = current_state.get("GUIDE", False) or virtual_guide_pressed
+
+    if preset_switch_mode:
+        if current_state.get("LEFT", False) and not preset_switch_prev["LEFT"]:
+            step_preset_slot(-1)
+            changed = True
+        if current_state.get("RIGHT", False) and not preset_switch_prev["RIGHT"]:
+            step_preset_slot(1)
+            changed = True
+        if current_state.get("START", False) and not preset_switch_prev["START"]:
+            confirm_selected_preset_slot()
+            changed = True
+
+        preset_switch_prev["LEFT"] = current_state.get("LEFT", False)
+        preset_switch_prev["RIGHT"] = current_state.get("RIGHT", False)
+        preset_switch_prev["START"] = current_state.get("START", False)
+    else:
+        preset_switch_prev["LEFT"] = current_state.get("LEFT", False)
+        preset_switch_prev["RIGHT"] = current_state.get("RIGHT", False)
+        preset_switch_prev["START"] = current_state.get("START", False)
+
+        if guide_pressed:
+            if preset_switch_guide_started is None:
+                preset_switch_guide_started = time.monotonic()
+            elif time.monotonic() - preset_switch_guide_started >= 0.9:
+                enter_preset_switch_mode()
+                changed = True
+        else:
+            preset_switch_guide_started = None
     
-    gp.set_hat(compute_hat())
+    gp.set_hat(0x0F if preset_switch_mode else compute_hat())
     return changed
 
 while True:

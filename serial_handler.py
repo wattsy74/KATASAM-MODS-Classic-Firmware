@@ -1,5 +1,5 @@
-# serial_handler.py - High-Speed Streaming Version v3.9.26 (with JSON corruption protection)
-__version__ = "3.9.26"
+# serial_handler.py - High-Speed Streaming Version v5.0.0 (with JSON corruption protection)
+__version__ = "5.0.0"
 
 def get_version():
     return __version__
@@ -10,6 +10,53 @@ import microcontroller
 import os
 from utils import hex_to_rgb, load_config
 from hardware import setup_leds, setup_buttons, setup_whammy, resolve_pin
+
+PRESET_STATE_FILE = "/preset_state.json"
+USER_PRESET_SLOTS = [f"User {i}" for i in range(1, 7)]
+
+def clamp_slot(slot_index):
+    try:
+        slot = int(slot_index)
+    except Exception:
+        slot = 1
+    if slot < 1:
+        return 1
+    if slot > 6:
+        return 6
+    return slot
+
+def default_user_preset_colors(presets, preferred_slot=None):
+    if isinstance(presets, dict):
+        if preferred_slot and isinstance(presets.get(preferred_slot), dict):
+            return presets.get(preferred_slot, {})
+        if isinstance(presets.get("User 1"), dict):
+            return presets.get("User 1", {})
+        for slot in USER_PRESET_SLOTS:
+            if isinstance(presets.get(slot), dict):
+                return presets.get(slot, {})
+    return {}
+
+def load_preset_state_safe():
+    try:
+        with open(PRESET_STATE_FILE, "r") as f:
+            state = json.load(f)
+        if not isinstance(state, dict):
+            raise ValueError("preset state must be a JSON object")
+    except Exception:
+        state = {}
+    return {
+        "schema_version": 1,
+        "active_slot": clamp_slot(state.get("active_slot", 1)),
+        "default_slot": clamp_slot(state.get("default_slot", state.get("active_slot", 1)))
+    }
+
+def write_preset_state_atomic(state):
+    safe_state = {
+        "schema_version": 1,
+        "active_slot": clamp_slot(state.get("active_slot", 1)),
+        "default_slot": clamp_slot(state.get("default_slot", 1))
+    }
+    return atomic_write_json(PRESET_STATE_FILE, safe_state)
 
 # ===== SERIAL OPERATION LED INDICATORS =====
 # Global variables to store LED states during serial operations
@@ -175,6 +222,7 @@ def handle_serial(serial, config, raw_config, leds, buttons, whammy, current_sta
                     # Device detection, communication, and control commands need ACKs
                     if (line == "FIRMWARE_READY?" or line == "READY?" or 
                         line == "READVERSION" or line == "READDEVICENAME" or 
+                        line == "READPRESETSTATE" or line == "WRITEPRESETSTATE" or line == "LISTPRESETSLOTS" or
                         line == "READUID" or line.startswith("READFILE:") or
                         line.startswith("READPIN:") or line.startswith("PREVIEWLED:") or
                         line == "READWHAMMY" or line == "READJOYSTICK" or
@@ -272,6 +320,47 @@ def handle_serial(serial, config, raw_config, leds, buttons, whammy, current_sta
                             print(f"LED not found for key: {led_key}")
                     except Exception as e:
                         print("PREVIEWLED failed:", e)
+                    return buffer, mode, filename, file_lines, config, raw_config, leds, buttons, whammy, current_state, user_presets, preset_colors
+                # Handle preset state commands
+                if mode is None and line == "READPRESETSTATE":
+                    try:
+                        state = load_preset_state_safe()
+                        serial.write(("PRESETSTATE:" + json.dumps(state) + "\nEND\n").encode("utf-8"))
+                    except Exception as e:
+                        serial.write(f"ERROR: {e}\nEND\n".encode("utf-8"))
+                    return buffer, mode, filename, file_lines, config, raw_config, leds, buttons, whammy, current_state, user_presets, preset_colors
+
+                if mode is None and line.startswith("WRITEPRESETSTATE:"):
+                    try:
+                        payload = line.split(":", 1)[1].strip()
+                        state = json.loads(payload)
+                        if not isinstance(state, dict):
+                            raise ValueError("preset state must be a JSON object")
+                        normalized = {
+                            "schema_version": 1,
+                            "active_slot": clamp_slot(state.get("active_slot", 1)),
+                            "default_slot": clamp_slot(state.get("default_slot", state.get("active_slot", 1)))
+                        }
+                        if write_preset_state_atomic(normalized):
+                            try:
+                                import code
+                                code.preset_state = normalized
+                                if hasattr(code, "apply_slot_to_preset_colors"):
+                                    code.apply_slot_to_preset_colors(normalized["active_slot"])
+                            except Exception as runtime_error:
+                                print(f"Runtime preset state sync warning: {runtime_error}")
+                            serial.write(b"PRESETSTATE:OK\nEND\n")
+                        else:
+                            serial.write(b"ERROR: Failed to write preset state\nEND\n")
+                    except Exception as e:
+                        serial.write(f"ERROR: {e}\nEND\n".encode("utf-8"))
+                    return buffer, mode, filename, file_lines, config, raw_config, leds, buttons, whammy, current_state, user_presets, preset_colors
+
+                if mode is None and line == "LISTPRESETSLOTS":
+                    try:
+                        serial.write(("PRESETSLOTS:" + json.dumps(USER_PRESET_SLOTS) + "\nEND\n").encode("utf-8"))
+                    except Exception as e:
+                        serial.write(f"ERROR: {e}\nEND\n".encode("utf-8"))
                     return buffer, mode, filename, file_lines, config, raw_config, leds, buttons, whammy, current_state, user_presets, preset_colors
                 # Handle READFILE commands
                 if mode is None and line.startswith("READFILE:"):
@@ -674,7 +763,12 @@ def handle_serial(serial, config, raw_config, leds, buttons, whammy, current_sta
                                             serial.write(f"File {filename} written (atomic)\n".encode("utf-8"))
                                             print("File written successfully (user_presets.json, validated)")
                                             user_presets = parsed
-                                            preset_colors = user_presets.get("NewUserPreset1", {})
+                                            preferred_slot = None
+                                            for slot in USER_PRESET_SLOTS:
+                                                if isinstance(user_presets.get(slot), dict):
+                                                    preferred_slot = slot
+                                                    break
+                                            preset_colors = default_user_preset_colors(user_presets, preferred_slot)
                                         else:
                                             serial.write(f"ERROR: Atomic write failed for {filename}\n".encode("utf-8"))
                                     else:
@@ -777,7 +871,12 @@ def handle_serial(serial, config, raw_config, leds, buttons, whammy, current_sta
                                 ensure_parent_dir_exists(filename)
                                 if atomic_write_json(filename, merged):
                                     user_presets = merged
-                                    preset_colors = user_presets.get("NewUserPreset1", {})
+                                    preferred_slot = None
+                                    for slot in USER_PRESET_SLOTS:
+                                        if isinstance(new_data.get(slot), dict):
+                                            preferred_slot = slot
+                                            break
+                                    preset_colors = default_user_preset_colors(user_presets, preferred_slot)
                                     serial.write(f"Merged into {filename} (atomic)\n".encode("utf-8"))
                                     print("Merge complete (user_presets.json, validated)")
                                 else:

@@ -1,56 +1,56 @@
 {
-    "firmware_version":  "3.9.26",
-    "generated_at":  "2025-08-13T10:18:18.766Z",
+    "firmware_version":  "5.0.0",
+    "generated_at":  "2026-06-24T00:00:00.000Z",
     "files":  {
                   "boot.py":  {
-                                  "version":  "3.9.26",
-                                  "checksum":  "feff4590d0524620477992d67e7d12fba04e38b4924f5e70b98e91a3904daff8",
-                                  "size":  30674,
+                                  "version":  "5.0.0",
+                                  "checksum":  "30764a8ee69bca5d227061e1d01dfc2af19155824357978728e5242ddfbd8544",
+                                  "size":  29999,
                                   "algorithm":  "sha256"
                               },
                   "code.py":  {
-                                  "version":  "3.9.26",
-                                  "checksum":  "9ee56b9208d92eba2d9e10f1dc2c7720b958b91f0b422cea9f5bfe27a8bbb8ed",
-                                  "size":  13290,
+                                  "version":  "5.0.0",
+                                  "checksum":  "29a930438717f293303c80debe4d3a2828c6388f4e355bdefadcc916d9b8aef7",
+                                  "size":  19664,
                                   "algorithm":  "sha256"
                               },
                   "serial_handler.py":  {
-                                            "version":  "3.9.26",
-                                            "checksum":  "0d53a0e0d6c64676b2593a96a6785ba4ff7236282871ec3fafa2e20e88cb9271",
-                                            "size":  54853,
+                                            "version":  "5.0.0",
+                                            "checksum":  "cdab9eda23df7a085658920c8a8986d6e7c6824bf304fad20aa2a3d8f08a3a59",
+                                            "size":  58464,
                                             "algorithm":  "sha256"
                                         },
                   "utils.py":  {
-                                   "version":  "3.9.26",
+                                   "version":  "5.0.0",
                                    "checksum":  "06ce997aefc88db789828f7f3a1fa8643e98322385569d7cc2b00123603326bb",
                                    "size":  793,
                                    "algorithm":  "sha256"
                                },
                   "hardware.py":  {
-                                      "version":  "3.9.26",
+                                      "version":  "5.0.0",
                                       "checksum":  "31b3e69c49a87efdef3f96df8aecf16f7ff06e7bd4759ce131029ddd9c177e23",
                                       "size":  1361,
                                       "algorithm":  "sha256"
                                   },
                   "gamepad.py":  {
-                                     "version":  "3.9.26",
+                                     "version":  "5.0.0",
                                      "checksum":  "be4d0d0edc4e3fb3c08a383c067c5b03fb195917a9e57806e503e98bb542860e",
                                      "size":  1153,
                                      "algorithm":  "sha256"
                                  },
                   "config.json":  {
-                                      "version":  "3.9.26",
+                                      "version":  "5.0.0",
                                       "checksum":  "e29aa351d3bb0f991b35fbf6fed42d804c0f08434866c1b31aaaadec2c7f68f0",
                                       "size":  1713,
                                       "algorithm":  "sha256"
                                   },
                   "presets.json":  {
-                                       "version":  "3.9.26",
+                                       "version":  "5.0.0",
                                        "checksum":  "901ba1766004dd161986feb2746ace7d16842d10c6a8c1a5ef2bed7cfe43e519",
                                        "size":  11563,
                                        "algorithm":  "sha256"
                                    }
               },
-    "update_url":  "https://api.github.com/repos/wattsy74/bgg-firmware-updates/contents/",
-    "release_notes":  "BGG Firmware v3.9.26 - Changes to the rename function to make it quicker and safer for the device"
+    "update_url":  "https://api.github.com/repos/wattsy74/KATASAM-MODS-Classic-Firmware/contents/",
+    "release_notes":  "BGG Firmware v5.0.0 - FEAT-006 preset slot state, switching mode, and serial state commands"
 }

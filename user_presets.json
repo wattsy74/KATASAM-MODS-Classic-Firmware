@@ -1,8 +1,8 @@
 {
     "_metadata":  {
-                      "version":  "3.9.26",
-                      "description":  "BumbleGum Guitar Controller User Presets - v3.9.26 Smart Acknowledgment System with Update Testing",
-                      "lastUpdated":  "2025-08-13"
+                      "version":  "5.0.0",
+                      "description":  "BumbleGum Guitar Controller User Presets - v5.0.0 Smart Acknowledgment System with Update Testing",
+                      "lastUpdated":  "2026-06-24"
                   },
     "User 1":  {
                    "green-fret-pressed":  "#FFFFFF",
@@ -69,6 +69,22 @@
                    "strum-down-released":  "#FFFFFF"
                },
     "User 5":  {
+                   "green-fret-pressed":  "#FFFFFF",
+                   "red-fret-pressed":  "#FFFFFF",
+                   "yellow-fret-pressed":  "#FFFFFF",
+                   "blue-fret-pressed":  "#FFFFFF",
+                   "orange-fret-pressed":  "#FFFFFF",
+                   "green-fret-released":  "#FFFFFF",
+                   "red-fret-released":  "#FFFFFF",
+                   "yellow-fret-released":  "#FFFFFF",
+                   "blue-fret-released":  "#FFFFFF",
+                   "orange-fret-released":  "#FFFFFF",
+                   "strum-up-active":  "#FFFFFF",
+                   "strum-down-active":  "#FFFFFF",
+                   "strum-up-released":  "#FFFFFF",
+                   "strum-down-released":  "#FFFFFF"
+               },
+    "User 6":  {
                    "green-fret-pressed":  "#FFFFFF",
                    "red-fret-pressed":  "#FFFFFF",
                    "yellow-fret-pressed":  "#FFFFFF",

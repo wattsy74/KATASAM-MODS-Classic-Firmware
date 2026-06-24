@@ -1,5 +1,5 @@
-# boot.py v3.9.26 - Smart Acknowledgment System + Enhanced Device Communication
-__version__ = "3.9.26"
+# boot.py v5.0.0 - Smart Acknowledgment System + Enhanced Device Communication
+__version__ = "5.0.0"
 
 def get_version():
     return __version__
