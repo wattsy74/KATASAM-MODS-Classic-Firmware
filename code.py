@@ -1,18 +1,18 @@
 FIRMWARE_VERSIONS = {
-    "code.py": "4.0.0",
-    "hardware.py": "4.0.0",
-    "utils.py": "4.0.0",
-    "gamepad.py": "4.0.0",
-    "serial_handler.py": "4.0.0",
-    "pin_detect.py": "4.0.0",
-    "boot.py": "4.0.0",
-    "demo_routine.py": "4.0.0",
-    "demo_state.py": "4.0.0"
+    "code.py": "5.0.1",
+    "hardware.py": "5.0.1",
+    "utils.py": "5.0.1",
+    "gamepad.py": "5.0.1",
+    "serial_handler.py": "5.0.1",
+    "pin_detect.py": "5.0.1",
+    "boot.py": "5.0.1",
+    "demo_routine.py": "5.0.1",
+    "demo_state.py": "5.0.1"
 }
 
-# BGG Firmware v4.0.0 - Smart Acknowledgment System
-# - Enhanced device detection and communication
-# - Smart ACK messages for Windows app compatibility
+# BGG Firmware v5.0.1 - Preset Slot Switching Development
+# - Based on working v4.0.0 firmware
+# - Incremental guide mode implementation with live preview testing
 # - Conditional debug output prevents firmware corruption
 # - Maintains v4.0.0 stability with communication improvements
 
