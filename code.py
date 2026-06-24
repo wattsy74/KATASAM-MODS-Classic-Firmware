@@ -320,6 +320,18 @@ BUTTON_TO_ELEMENT_ID = {
     "STRUM_DOWN": "strum-down",
 }
 
+# Mapping from button names to config array indices for led_color and released_color
+# Order in config arrays: [STRUM_UP, STRUM_DOWN, ORANGE_FRET, BLUE_FRET, YELLOW_FRET, RED_FRET, GREEN_FRET]
+BUTTON_TO_LED_INDEX = {
+    "STRUM_UP": 0,
+    "STRUM_DOWN": 1,
+    "ORANGE_FRET": 2,
+    "BLUE_FRET": 3,
+    "YELLOW_FRET": 4,
+    "RED_FRET": 5,
+    "GREEN_FRET": 6,
+}
+
 # Load preset state (current active slot)
 try:
     with open("/preset_state.json", "r") as f:
@@ -463,17 +475,63 @@ def poll_inputs():
             
             # Guide Mode: START button to confirm and save slot
             if guide_mode_active and name == "START" and pressed:
-                # Save selected slot to preset_state.json
+                # Copy selected slot's preset colors to config.json
                 try:
+                    slot_data = slot_presets[current_guide_slot]
+                    
+                    # Create new color arrays from preset
+                    new_led_color = config.get("led_color", [])
+                    new_released_color = config.get("released_color", [])
+                    
+                    # Copy colors from preset to config arrays
+                    for button_name, led_index in BUTTON_TO_LED_INDEX.items():
+                        element_id_prefix = BUTTON_TO_ELEMENT_ID.get(button_name)
+                        if element_id_prefix is None:
+                            continue
+                        
+                        # Get pressed color
+                        if "strum" in element_id_prefix:
+                            pressed_color = slot_data.get(f"{element_id_prefix}-active")
+                            if pressed_color is None:
+                                pressed_color = slot_data.get(f"{element_id_prefix}-released")
+                        else:
+                            pressed_color = slot_data.get(f"{element_id_prefix}-pressed")
+                            if pressed_color is None:
+                                pressed_color = slot_data.get(f"{element_id_prefix}-released")
+                        
+                        # Get released color
+                        released_color = slot_data.get(f"{element_id_prefix}-released")
+                        if released_color is None and "strum" in element_id_prefix:
+                            released_color = slot_data.get(f"{element_id_prefix}-active")
+                        
+                        if pressed_color:
+                            new_led_color[led_index] = pressed_color
+                        if released_color:
+                            new_released_color[led_index] = released_color
+                    
+                    # Update config in memory
+                    config["led_color"] = new_led_color
+                    config["released_color"] = new_released_color
+                    raw_config["led_color"] = new_led_color
+                    raw_config["released_color"] = new_released_color
+                    
+                    # Write updated config to file
+                    with open("/config.json", "w") as f:
+                        json.dump(raw_config, f)
+                    
+                    print(f"[GUIDE MODE] Saved slot {current_guide_slot} colors to config.json")
+                    
+                    # Save slot number to preset_state.json
                     preset_state = {"active_slot": current_guide_slot}
                     with open("/preset_state.json", "w") as f:
                         json.dump(preset_state, f)
+                    
                     print(f"[GUIDE MODE] Saved slot {current_guide_slot} to preset_state.json")
                     guide_mode_active = False
                     guide_entry_detected = False  # Allow re-entry
-                    print("[GUIDE MODE] Exiting guide mode")
+                    print("[GUIDE MODE] Exiting guide mode - colors now default")
                 except Exception as e:
-                    print(f"[GUIDE MODE] Error saving preset state: {e}")
+                    print(f"[GUIDE MODE] Error saving colors: {e}")
             
             if name in BUTTON_MAP:
                 # Don't send LEFT/RIGHT/START to gamepad when in guide mode (used for navigation)
