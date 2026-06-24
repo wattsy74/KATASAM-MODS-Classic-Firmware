@@ -89,6 +89,23 @@ guide_last_press_time = None  # Time of last guide button press (for triple-pres
 GUIDE_HOLD_DURATION = 1.0  # 1 second hold to enter guide mode
 GUIDE_TRIPLE_PRESS_TIMEOUT = 0.5  # 500ms window for triple-press
 
+# Guide Mode State Variables
+guide_mode_active = False  # Flag for being in guide mode
+current_guide_slot = 1  # Current slot being viewed (1-6)
+guide_mode_entry_time = None  # Time when guide mode was entered
+GUIDE_MODE_TIMEOUT = 30.0  # Exit guide mode after 30 seconds of inactivity
+guide_mode_last_action_time = None  # Track last button press for timeout
+
+# Slot LED indicator colors (for Strum LEDs during guide mode)
+SLOT_COLORS = [
+    (255, 0, 0),      # Slot 1 - Red
+    (255, 165, 0),    # Slot 2 - Orange
+    (255, 255, 0),    # Slot 3 - Yellow
+    (0, 255, 0),      # Slot 4 - Green
+    (0, 0, 255),      # Slot 5 - Blue
+    (128, 0, 128),    # Slot 6 - Purple
+]
+
 # Tilt Wave Effect Variables - Enhanced for dynamic 7-LED effect
 tilt_wave_enabled = config.get("tilt_wave_enabled", True)
 tilt_wave_active = False
@@ -202,6 +219,29 @@ def update_tilt_wave():
     tilt_wave_step += 1
     return True
 
+def update_guide_mode_leds():
+    """Render guide mode LED feedback - light strum LEDs with slot color"""
+    global current_guide_slot
+    if leds is None:
+        return
+    
+    # All LEDs off except strum indicators
+    for i in range(len(leds)):
+        leds[i] = (0, 0, 0)
+    
+    # Light both strum LEDs with the color of the current slot
+    slot_color = SLOT_COLORS[current_guide_slot - 1]  # 1-6 → 0-5 index
+    strum_up_led = config.get("STRUM_UP_led")
+    strum_down_led = config.get("STRUM_DOWN_led")
+    
+    if strum_up_led is not None:
+        leds[strum_up_led] = slot_color
+    if strum_down_led is not None:
+        leds[strum_down_led] = slot_color
+    
+    leds.show()
+    print(f"[GUIDE] Slot {current_guide_slot}: {slot_color}")
+
 def update_leds():
     """Update normal LED colors based on button states and config"""
     if leds is None:
@@ -248,6 +288,16 @@ try:
     preset_colors = user_presets.get("NewUserPreset1", {})
 except Exception as e:
     print("Could not load user presets:", e)
+
+# Load preset state (current active slot)
+try:
+    with open("/preset_state.json", "r") as f:
+        preset_state = json.load(f)
+        current_guide_slot = preset_state.get("active_slot", 1)
+        print(f"[BOOT] Loaded preset state: active_slot = {current_guide_slot}")
+except Exception as e:
+    print("Could not load preset_state.json:", e)
+    current_guide_slot = 1
 
 BUTTON_MAP = {
     "GREEN_FRET": 1,
@@ -309,6 +359,7 @@ def compute_hat():
 def poll_inputs():
     global previous_tilt_state, previous_virtual_guide, guide_button_pressed, guide_button_press_time
     global guide_entry_detected, guide_triple_press_count, guide_last_press_time
+    global guide_mode_active, guide_mode_entry_time, guide_mode_last_action_time, current_guide_slot
     changed = False
     
     for name, pin in buttons.items():
@@ -337,6 +388,10 @@ def poll_inputs():
                             if guide_triple_press_count >= 3 and not guide_entry_detected:
                                 print("[GUIDE] Triple-press detected - Entry to Guide Mode!")
                                 guide_entry_detected = True
+                                guide_mode_active = True
+                                guide_mode_entry_time = current_time
+                                guide_mode_last_action_time = current_time
+                                print(f"[GUIDE MODE] Entered! Current slot: {current_guide_slot}")
                                 guide_triple_press_count = 0  # Reset counter
                         else:
                             # Timeout - reset counter
@@ -354,6 +409,10 @@ def poll_inputs():
                         if hold_duration >= GUIDE_HOLD_DURATION and not guide_entry_detected:
                             print(f"[GUIDE] 1-second hold detected ({hold_duration:.2f}s) - Entry to Guide Mode!")
                             guide_entry_detected = True
+                            guide_mode_active = True
+                            guide_mode_entry_time = current_time
+                            guide_mode_last_action_time = current_time
+                            print(f"[GUIDE MODE] Entered! Current slot: {current_guide_slot}")
                         guide_button_press_time = None
             
             if name in BUTTON_MAP:
@@ -398,7 +457,10 @@ while True:
             last_whammy = w
     
     # PRIORITY 3: LED updates (lower priority, can be throttled)
-    if tilt_wave_active:
+    if guide_mode_active:
+        # Guide mode overrides all other LED rendering
+        update_guide_mode_leds()
+    elif tilt_wave_active:
         # Tilt wave overrides normal LEDs but doesn't block gamepad
         update_tilt_wave()
     elif gamepad_changed:
