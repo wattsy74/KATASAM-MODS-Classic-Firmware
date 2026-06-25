@@ -738,8 +738,8 @@ while True:
             last_whammy = w
     
     # PRIORITY 3: LED updates (lower priority, can be throttled)
+    # Check and trigger demo mode tiltwave animation
     if demo_mode_active:
-        # Demo mode cycles through presets with tiltwave animation (2.4 seconds per preset)
         current_time = time.monotonic()
         if demo_last_change_time is not None and current_time - demo_last_change_time >= DEMO_PRESET_INTERVAL:
             # Time to change to next preset
@@ -756,17 +756,18 @@ while True:
         if not demo_tiltwave_triggered and not tilt_wave_active:
             start_tilt_wave()
             demo_tiltwave_triggered = True
-        
-        # If tiltwave is active, it will render (has priority via main loop order)
-        # Otherwise show the demo preset colors
+    
+    # Render LED updates based on priority (tiltwave has highest priority)
+    if tilt_wave_active:
+        # Tilt wave overrides all other LED rendering
+        update_tilt_wave()
+    elif guide_mode_active:
+        # Guide mode overrides other LED rendering (except tiltwave)
+        update_guide_mode_leds()
+    elif demo_mode_active:
+        # Demo mode displays preset colors when not animating
         if not tilt_wave_active:
             update_demo_mode_leds()
-    elif guide_mode_active:
-        # Guide mode overrides all other LED rendering
-        update_guide_mode_leds()
-    elif tilt_wave_active:
-        # Tilt wave overrides normal LEDs but doesn't block gamepad
-        update_tilt_wave()
     elif gamepad_changed:
         # Only update normal LEDs if gamepad state changed
         update_leds()
