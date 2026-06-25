@@ -1,5 +1,5 @@
 # boot.py v4.0.0 - Smart Acknowledgment System + Enhanced Device Communication
-__version__ = "4.0.0"
+__version__ = "5.0.1"
 
 def get_version():
     return __version__
