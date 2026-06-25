@@ -11,10 +11,10 @@ FIRMWARE_VERSIONS = {
 }
 
 # BGG Firmware v5.0.1 - Preset Slot Switching Development
-# - Based on working v4.0.0 firmware
+# - Based on working v5.0.1 firmware
 # - Incremental guide mode implementation with live preview testing
 # - Conditional debug output prevents firmware corruption
-# - Maintains v4.0.0 stability with communication improvements
+# - Maintains v5.0.1 stability with communication improvements
 
 def get_firmware_versions():
     return FIRMWARE_VERSIONS
