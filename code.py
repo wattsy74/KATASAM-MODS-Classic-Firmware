@@ -91,10 +91,18 @@ GUIDE_TRIPLE_PRESS_TIMEOUT = 0.5  # 500ms window for triple-press
 
 # Guide Mode State Variables
 guide_mode_active = False  # Flag for being in guide mode
-current_guide_slot = 1  # Current slot being viewed (1-6)
+current_guide_slot = 1  # Current slot being viewed (1-6) for USER presets
+guide_preset_type = "user"  # "user" or "standard" - which preset type to display
+current_standard_preset_index = 0  # Current index in standard presets list
 guide_mode_entry_time = None  # Time when guide mode was entered
 GUIDE_MODE_TIMEOUT = 30.0  # Exit guide mode after 30 seconds of inactivity
 guide_mode_last_action_time = None  # Track last button press for timeout
+
+# Demo Mode State Variables
+demo_mode_active = False  # Flag for demo mode
+demo_preset_index = 0  # Current preset being displayed
+demo_last_change_time = None  # Track time for 5-second preset intervals
+DEMO_PRESET_INTERVAL = 5.0  # Change preset every 5 seconds
 
 # Tilt Wave Effect Variables - Enhanced for dynamic 7-LED effect
 tilt_wave_enabled = config.get("tilt_wave_enabled", True)
@@ -161,6 +169,8 @@ def update_tilt_wave():
                 leds[i] = stored_led_colors[i]
         leds.show()
         tilt_wave_active = False
+        # Refresh LEDs to current button states to avoid stale animation frame
+        update_leds()
         return False
     
     # Enhanced cascading wave effect across all LEDs
@@ -210,14 +220,24 @@ def update_tilt_wave():
     return True
 
 def update_guide_mode_leds():
-    """Render guide mode LED feedback - show full board with slot's preset colors (released state)"""
-    global current_guide_slot
-    if leds is None or current_guide_slot not in slot_presets:
+    """Render guide mode LED feedback - show full board with selected preset colors (released state)"""
+    global current_guide_slot, guide_preset_type, current_standard_preset_index
+    if leds is None:
         return
     
-    slot_data = slot_presets[current_guide_slot]
+    # Determine which preset to display
+    if guide_preset_type == "standard" and current_standard_preset_index < len(standard_presets_list):
+        preset_name = standard_presets_list[current_standard_preset_index]
+        preset_data = standard_presets.get(preset_name, {})
+        display_name = f"Standard: {preset_name}"
+    elif guide_preset_type == "user" and current_guide_slot in slot_presets:
+        preset_data = slot_presets[current_guide_slot]
+        display_name = f"User Slot {current_guide_slot}"
+    else:
+        preset_data = {}
+        display_name = "No preset"
     
-    # Render all buttons with their released colors from this slot's preset
+    # Render all buttons with their released colors from the selected preset
     for button_name, element_id_prefix in BUTTON_TO_ELEMENT_ID.items():
         led_index = config.get(f"{button_name}_led")
         if led_index is None:
@@ -228,14 +248,14 @@ def update_guide_mode_leds():
         
         # For strum buttons, try "-released" or "-active"
         if "strum" in element_id_prefix:
-            hex_color = slot_data.get(f"{element_id_prefix}-released")
+            hex_color = preset_data.get(f"{element_id_prefix}-released")
             if hex_color is None:
-                hex_color = slot_data.get(f"{element_id_prefix}-active")
+                hex_color = preset_data.get(f"{element_id_prefix}-active")
         else:
             # For frets, try "-released" first, then "-pressed" as fallback
-            hex_color = slot_data.get(f"{element_id_prefix}-released")
+            hex_color = preset_data.get(f"{element_id_prefix}-released")
             if hex_color is None:
-                hex_color = slot_data.get(f"{element_id_prefix}-pressed")
+                hex_color = preset_data.get(f"{element_id_prefix}-pressed")
         
         if hex_color:
             # Convert hex to RGB and set LED
@@ -250,7 +270,74 @@ def update_guide_mode_leds():
             leds[led_index] = (0, 0, 0)
     
     leds.show()
-    print(f"[GUIDE] Displaying released colors for slot {current_guide_slot}")
+    print(f"[GUIDE] Displaying {display_name}")
+
+def flash_white_leds(flash_count=2, flash_duration=0.1):
+    """Flash all LEDs white N times for mode transitions"""
+    global leds
+    if leds is None:
+        return
+    
+    original_colors = []
+    for i in range(len(leds)):
+        original_colors.append(tuple(leds[i]))
+    
+    for _ in range(flash_count):
+        # Flash on (white)
+        for i in range(len(leds)):
+            leds[i] = (255, 255, 255)
+        leds.show()
+        time.sleep(flash_duration)
+        
+        # Flash off (black)
+        for i in range(len(leds)):
+            leds[i] = (0, 0, 0)
+        leds.show()
+        time.sleep(flash_duration)
+    
+    # Restore original colors
+    for i in range(len(leds)):
+        leds[i] = original_colors[i]
+    leds.show()
+
+def update_demo_mode_leds():
+    """Update LEDs for demo mode - display current preset's released colors"""
+    global demo_preset_index, leds
+    if leds is None or demo_preset_index >= len(standard_presets_list):
+        return
+    
+    preset_name = standard_presets_list[demo_preset_index]
+    preset_data = standard_presets.get(preset_name, {})
+    
+    # Render all buttons with preset's released colors
+    for button_name, element_id_prefix in BUTTON_TO_ELEMENT_ID.items():
+        led_index = config.get(f"{button_name}_led")
+        if led_index is None:
+            continue
+        
+        # Get released color from preset
+        hex_color = None
+        if "strum" in element_id_prefix:
+            hex_color = preset_data.get(f"{element_id_prefix}-released")
+            if hex_color is None:
+                hex_color = preset_data.get(f"{element_id_prefix}-active")
+        else:
+            hex_color = preset_data.get(f"{element_id_prefix}-released")
+            if hex_color is None:
+                hex_color = preset_data.get(f"{element_id_prefix}-pressed")
+        
+        if hex_color:
+            try:
+                color = hex_to_rgb(hex_color)
+                leds[led_index] = color
+            except Exception as e:
+                print(f"[DEMO] Error setting LED {button_name}: {e}")
+                leds[led_index] = (0, 0, 0)
+        else:
+            leds[led_index] = (0, 0, 0)
+    
+    leds.show()
+    print(f"[DEMO] Displaying preset {demo_preset_index + 1}/{len(standard_presets_list)}: {preset_name}")
 
 def update_leds():
     """Update normal LED colors based on button states and config"""
@@ -308,6 +395,19 @@ for slot_num, slot_name in enumerate(SLOT_NAMES, 1):
     else:
         print(f"[WARNING] Slot {slot_num} ({slot_name}) not found in user_presets.json")
         slot_presets[slot_num] = {}
+
+# Load standard presets from presets.json for guide mode
+standard_presets = {}
+standard_presets_list = []  # List of preset names in order
+try:
+    with open("/presets.json", "r") as f:
+        presets_data = json.load(f)
+        standard_presets = presets_data.get("presets", {})
+        standard_presets_list = list(standard_presets.keys())
+    print(f"[GUIDE] Loaded {len(standard_presets)} standard presets: {standard_presets_list}")
+except Exception as e:
+    print(f"[WARNING] Could not load standard presets: {e}")
+    standard_presets_list = []
 
 # Mapping from button names to element ID prefixes for preset color lookup
 BUTTON_TO_ELEMENT_ID = {
@@ -403,6 +503,7 @@ def poll_inputs():
     global previous_tilt_state, previous_virtual_guide, guide_button_pressed, guide_button_press_time
     global guide_entry_detected, guide_triple_press_count, guide_last_press_time
     global guide_mode_active, guide_mode_entry_time, guide_mode_last_action_time, current_guide_slot
+    global guide_preset_type, current_standard_preset_index
     changed = False
     
     for name, pin in buttons.items():
@@ -435,6 +536,7 @@ def poll_inputs():
                                 guide_mode_entry_time = current_time
                                 guide_mode_last_action_time = current_time
                                 print(f"[GUIDE MODE] Entered! Current slot: {current_guide_slot}")
+                                flash_white_leds(flash_count=2, flash_duration=0.1)
                                 guide_triple_press_count = 0  # Reset counter
                         else:
                             # Timeout - reset counter
@@ -456,28 +558,55 @@ def poll_inputs():
                             guide_mode_entry_time = current_time
                             guide_mode_last_action_time = current_time
                             print(f"[GUIDE MODE] Entered! Current slot: {current_guide_slot}")
+                            flash_white_leds(flash_count=2, flash_duration=0.1)
                         guide_button_press_time = None
             
-            # Guide Mode: LEFT/RIGHT slot stepping
+            # Guide Mode: LEFT/RIGHT slot stepping (USER presets)
             if guide_mode_active and pressed:  # Only on press, not release
                 if name == "LEFT":
                     # Previous slot (wrap 1 → 6)
+                    guide_preset_type = "user"
                     current_guide_slot = current_guide_slot - 1 if current_guide_slot > 1 else 6
                     guide_mode_last_action_time = time.monotonic()
-                    print(f"[GUIDE] Slot stepped LEFT: {current_guide_slot}")
+                    print(f"[GUIDE] User slot stepped LEFT: {current_guide_slot}")
                     changed = True
                 elif name == "RIGHT":
                     # Next slot (wrap 6 → 1)
+                    guide_preset_type = "user"
                     current_guide_slot = current_guide_slot + 1 if current_guide_slot < 6 else 1
                     guide_mode_last_action_time = time.monotonic()
-                    print(f"[GUIDE] Slot stepped RIGHT: {current_guide_slot}")
+                    print(f"[GUIDE] User slot stepped RIGHT: {current_guide_slot}")
                     changed = True
+                elif name == "UP":
+                    # Previous standard preset (wrap around)
+                    if len(standard_presets_list) > 0:
+                        guide_preset_type = "standard"
+                        current_standard_preset_index = current_standard_preset_index - 1 if current_standard_preset_index > 0 else len(standard_presets_list) - 1
+                        guide_mode_last_action_time = time.monotonic()
+                        preset_name = standard_presets_list[current_standard_preset_index]
+                        print(f"[GUIDE] Standard preset stepped UP: {preset_name}")
+                        changed = True
+                elif name == "DOWN":
+                    # Next standard preset (wrap around)
+                    if len(standard_presets_list) > 0:
+                        guide_preset_type = "standard"
+                        current_standard_preset_index = current_standard_preset_index + 1 if current_standard_preset_index < len(standard_presets_list) - 1 else 0
+                        guide_mode_last_action_time = time.monotonic()
+                        preset_name = standard_presets_list[current_standard_preset_index]
+                        print(f"[GUIDE] Standard preset stepped DOWN: {preset_name}")
+                        changed = True
             
-            # Guide Mode: START button to confirm and save slot
+            # Guide Mode: START button to confirm and save preset
             if guide_mode_active and name == "START" and pressed:
-                # Copy selected slot's preset colors to config.json
+                # Get the correct preset data based on type
                 try:
-                    slot_data = slot_presets[current_guide_slot]
+                    if guide_preset_type == "standard" and current_standard_preset_index < len(standard_presets_list):
+                        preset_name = standard_presets_list[current_standard_preset_index]
+                        preset_data = standard_presets.get(preset_name, {})
+                        print(f"[GUIDE MODE] Saving standard preset: {preset_name}")
+                    else:
+                        preset_data = slot_presets.get(current_guide_slot, {})
+                        print(f"[GUIDE MODE] Saving user preset slot {current_guide_slot}")
                     
                     # Create new color arrays from preset
                     new_led_color = config.get("led_color", [])
@@ -491,18 +620,18 @@ def poll_inputs():
                         
                         # Get pressed color
                         if "strum" in element_id_prefix:
-                            pressed_color = slot_data.get(f"{element_id_prefix}-active")
+                            pressed_color = preset_data.get(f"{element_id_prefix}-active")
                             if pressed_color is None:
-                                pressed_color = slot_data.get(f"{element_id_prefix}-released")
+                                pressed_color = preset_data.get(f"{element_id_prefix}-released")
                         else:
-                            pressed_color = slot_data.get(f"{element_id_prefix}-pressed")
+                            pressed_color = preset_data.get(f"{element_id_prefix}-pressed")
                             if pressed_color is None:
-                                pressed_color = slot_data.get(f"{element_id_prefix}-released")
+                                pressed_color = preset_data.get(f"{element_id_prefix}-released")
                         
                         # Get released color
-                        released_color = slot_data.get(f"{element_id_prefix}-released")
+                        released_color = preset_data.get(f"{element_id_prefix}-released")
                         if released_color is None and "strum" in element_id_prefix:
-                            released_color = slot_data.get(f"{element_id_prefix}-active")
+                            released_color = preset_data.get(f"{element_id_prefix}-active")
                         
                         if pressed_color:
                             new_led_color[led_index] = pressed_color
@@ -519,23 +648,37 @@ def poll_inputs():
                     with open("/config.json", "w") as f:
                         json.dump(raw_config, f)
                     
-                    print(f"[GUIDE MODE] Saved slot {current_guide_slot} colors to config.json")
+                    print(f"[GUIDE MODE] Saved preset colors to config.json")
                     
-                    # Save slot number to preset_state.json
-                    preset_state = {"active_slot": current_guide_slot}
+                    # Save preset info to preset_state.json
+                    if guide_preset_type == "standard":
+                        preset_state = {"preset_type": "standard", "preset_name": standard_presets_list[current_standard_preset_index]}
+                    else:
+                        preset_state = {"preset_type": "user", "active_slot": current_guide_slot}
                     with open("/preset_state.json", "w") as f:
                         json.dump(preset_state, f)
                     
-                    print(f"[GUIDE MODE] Saved slot {current_guide_slot} to preset_state.json")
+                    print(f"[GUIDE MODE] Saved preset to preset_state.json")
+                    
+                    # CRITICAL: Reset tiltwave state and restore normal LEDs
                     guide_mode_active = False
                     guide_entry_detected = False  # Allow re-entry
+                    guide_preset_type = "user"  # Reset to user presets for next entry
+                    current_standard_preset_index = 0
+                    tilt_wave_active = False
+                    tilt_wave_step = 0
+                    tilt_wave_led_counter = 0  # Reset throttling counter for clean tiltwave restart
+                    
+                    # Update LEDs to normal state based on current button presses
+                    update_leds()
+                    flash_white_leds(flash_count=2, flash_duration=0.1)
                     print("[GUIDE MODE] Exiting guide mode - colors now default")
                 except Exception as e:
                     print(f"[GUIDE MODE] Error saving colors: {e}")
             
             if name in BUTTON_MAP:
-                # Don't send LEFT/RIGHT/START to gamepad when in guide mode (used for navigation)
-                if not (guide_mode_active and name in ("LEFT", "RIGHT", "START")):
+                # Don't send LEFT/RIGHT/UP/DOWN/START to gamepad when in guide mode (used for navigation)
+                if not (guide_mode_active and name in ("LEFT", "RIGHT", "UP", "DOWN", "START")):
                     (gp.press if pressed else gp.release)(BUTTON_MAP[name])
             
             # Check for tilt sensor activation
@@ -564,6 +707,22 @@ def poll_inputs():
     gp.set_hat(compute_hat())
     return changed
 
+# Boot-time check for demo mode activation (GREEN + ORANGE frets held together at startup)
+print("[BOOT] Checking for demo mode activation...")
+demo_activation_time = time.monotonic()
+demo_activation_duration = 0.5  # Check for 0.5 seconds
+while time.monotonic() - demo_activation_time < demo_activation_duration:
+    green_fret_pressed = not buttons["GREEN_FRET"]["obj"].value
+    orange_fret_pressed = not buttons["ORANGE_FRET"]["obj"].value
+    if green_fret_pressed and orange_fret_pressed:
+        demo_mode_active = True
+        demo_preset_index = 0
+        demo_last_change_time = time.monotonic()
+        print("[BOOT] Demo mode activated! GREEN+ORANGE combo detected.")
+        flash_white_leds(flash_count=2, flash_duration=0.15)
+        break
+    time.sleep(0.01)
+
 while True:
     # PRIORITY 1: Always poll gamepad inputs first (critical for gameplay)
     gamepad_changed = poll_inputs()
@@ -577,7 +736,19 @@ while True:
             last_whammy = w
     
     # PRIORITY 3: LED updates (lower priority, can be throttled)
-    if guide_mode_active:
+    if demo_mode_active:
+        # Demo mode has highest priority - cycle through presets every 5 seconds
+        current_time = time.monotonic()
+        if demo_last_change_time is not None and current_time - demo_last_change_time >= DEMO_PRESET_INTERVAL:
+            # Time to change to next preset
+            demo_preset_index = (demo_preset_index + 1) % len(standard_presets_list)
+            demo_last_change_time = current_time
+            update_demo_mode_leds()
+        elif demo_last_change_time is None:
+            # First time in demo mode
+            demo_last_change_time = current_time
+            update_demo_mode_leds()
+    elif guide_mode_active:
         # Guide mode overrides all other LED rendering
         update_guide_mode_leds()
     elif tilt_wave_active:

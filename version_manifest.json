@@ -1,0 +1,56 @@
+{
+    "firmware_version":  "5.0.1",
+    "generated_at":  "2026-06-24T00:00:00.000Z",
+    "files":  {
+                  "boot.py":  {
+                                  "version":  "4.0.0",
+                                  "checksum":  "3cc603ee25a801976b6a921dd62b55b0b31d8d5fa28fe46719611c332479e253",
+                                  "size":  30672,
+                                  "algorithm":  "sha256"
+                              },
+                  "code.py":  {
+                                  "version":  "4.0.0",
+                                  "checksum":  "87f04c685a7f14114f96f872c83d3968db1fa71a5b147cf3b81ce9d6c6a7da40",
+                                  "size":  13714,
+                                  "algorithm":  "sha256"
+                              },
+                  "serial_handler.py":  {
+                                            "version":  "4.0.0",
+                                            "checksum":  "b7dab079a3585e366d4aab0d65e398cb08d073597ed8894b158d34207dd2b4b3",
+                                            "size":  54848,
+                                            "algorithm":  "sha256"
+                                        },
+                  "utils.py":  {
+                                   "version":  "4.0.0",
+                                   "checksum":  "79debd426d2746648b01e788e349fad299861941a18b59cedd85142ee18e6d75",
+                                   "size":  1633,
+                                   "algorithm":  "sha256"
+                               },
+                  "hardware.py":  {
+                                      "version":  "4.0.0",
+                                      "checksum":  "12ff2f8763d8f9c4c0389419a3ab6f2b120883e1d0b9b662a368d7d20505248f",
+                                      "size":  1360,
+                                      "algorithm":  "sha256"
+                                  },
+                  "gamepad.py":  {
+                                     "version":  "4.0.0",
+                                     "checksum":  "f04df93aec2c7f086ade207c333fa8ea1adfaf81866eb56e769c8405fa987eb4",
+                                     "size":  1152,
+                                     "algorithm":  "sha256"
+                                 },
+                  "config.json":  {
+                                      "version":  "4.0.0",
+                                      "checksum":  "7470b1ef0866dbb60cf1d22bac640280aa5a3a2239a9ec3be047a5c91eac3110",
+                                      "size":  1712,
+                                      "algorithm":  "sha256"
+                                  },
+                  "presets.json":  {
+                                       "version":  "4.0.0",
+                                       "checksum":  "3d013a2d16907d810d723357e12172232da48697e0a9b39bd467e94ed8da3cd4",
+                                       "size":  11562,
+                                       "algorithm":  "sha256"
+                                   }
+              },
+    "update_url":  "https://api.github.com/repos/wattsy74/bgg-firmware-updates/contents/",
+    "release_notes":  "BGG Firmware v4.0.0 - RGB to Hex Fixes"
+}

@@ -7,10 +7,25 @@ def get_version():
 import board
 
 def hex_to_rgb(hex_color):
-    """Convert hex color to RGB tuple. Handles both #ffffff and ffffff formats."""
+    """Convert hex color or rgb() to RGB tuple. Handles #ffffff, ffffff, and rgb(r,g,b) formats."""
     if not hex_color:
         return (0, 0, 0)  # Default to black for invalid colors
     
+    hex_color = str(hex_color).strip()
+    
+    # Handle rgb(r, g, b) format
+    if hex_color.lower().startswith("rgb("):
+        try:
+            # Extract numbers from rgb(r, g, b)
+            rgb_str = hex_color[4:-1]  # Remove "rgb(" and ")"
+            parts = [int(x.strip()) for x in rgb_str.split(",")]
+            if len(parts) == 3:
+                return tuple(max(0, min(255, p)) for p in parts)  # Clamp to 0-255
+        except (ValueError, IndexError):
+            print(f"Warning: Could not parse rgb color '{hex_color}', using black")
+            return (0, 0, 0)
+    
+    # Handle hex format
     hex_color = hex_color.lstrip("#")
     
     # Ensure we have exactly 6 characters
