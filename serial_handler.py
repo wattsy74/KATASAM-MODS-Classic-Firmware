@@ -1,5 +1,5 @@
 # serial_handler.py - High-Speed Streaming Version v5.0.1 (with JSON corruption protection)
-__version__ = "5.0.1"
+__version__ = "5.0.2"
 
 def get_version():
     return __version__

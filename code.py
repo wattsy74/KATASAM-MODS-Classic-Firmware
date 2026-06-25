@@ -1,13 +1,13 @@
 FIRMWARE_VERSIONS = {
-    "code.py": "5.0.1",
-    "hardware.py": "5.0.1",
-    "utils.py": "5.0.1",
-    "gamepad.py": "5.0.1",
-    "serial_handler.py": "5.0.1",
-    "pin_detect.py": "5.0.1",
-    "boot.py": "5.0.1",
-    "demo_routine.py": "5.0.1",
-    "demo_state.py": "5.0.1"
+    "code.py": "5.0.2",
+    "hardware.py": "5.0.2",
+    "utils.py": "5.0.2",
+    "gamepad.py": "5.0.2",
+    "serial_handler.py": "5.0.2",
+    "pin_detect.py": "5.0.2",
+    "boot.py": "5.0.2",
+    "demo_routine.py": "5.0.2",
+    "demo_state.py": "5.0.2"
 }
 
 # BGG Firmware v5.0.1 - Preset Slot Switching Development
