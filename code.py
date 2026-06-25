@@ -100,10 +100,10 @@ guide_mode_last_action_time = None  # Track last button press for timeout
 
 # Demo Mode State Variables
 demo_mode_active = False  # Flag for demo mode
-demo_preset_index = 0  # Current preset being displayed
+demo_preset_index = 0  # Current preset being displayed (0-12)
 demo_last_change_time = None  # Track time for preset intervals
-DEMO_PRESET_INTERVAL = 2.4  # Change preset every 2.4 seconds (tiltwave duration)
-demo_tiltwave_triggered = False  # Track if tiltwave was triggered on this transition
+DEMO_PRESET_INTERVAL = 2.4  # Display each preset for 2.4 seconds
+demo_animation_phase = False  # False = showing presets, True = playing animation after all presets
 
 # Tilt Wave Effect Variables - Enhanced for dynamic 7-LED effect
 tilt_wave_enabled = config.get("tilt_wave_enabled", True)
@@ -718,8 +718,8 @@ while time.monotonic() - demo_activation_time < demo_activation_duration:
     if green_fret_pressed and orange_fret_pressed:
         demo_mode_active = True
         demo_preset_index = 0
+        demo_animation_phase = False
         demo_last_change_time = time.monotonic()
-        demo_tiltwave_triggered = False
         print("[BOOT] Demo mode activated! GREEN+ORANGE combo detected.")
         flash_white_leds(flash_count=2, flash_duration=0.15)
         break
@@ -738,24 +738,41 @@ while True:
             last_whammy = w
     
     # PRIORITY 3: LED updates (lower priority, can be throttled)
-    # Check and trigger demo mode tiltwave animation
+    # Manage demo mode preset cycling and animation
     if demo_mode_active:
         current_time = time.monotonic()
+        
+        # Check if it's time to advance
         if demo_last_change_time is not None and current_time - demo_last_change_time >= DEMO_PRESET_INTERVAL:
-            # Time to change to next preset
-            demo_preset_index = (demo_preset_index + 1) % len(standard_presets_list)
+            if not demo_animation_phase:
+                # Currently showing presets - advance to next
+                prev_index = demo_preset_index
+                demo_preset_index = (demo_preset_index + 1) % len(standard_presets_list)
+                
+                # If we just wrapped around (0 -> 1), switch to animation phase
+                if demo_preset_index == 0 and prev_index == len(standard_presets_list) - 1:
+                    demo_animation_phase = True
+                    print(f"[DEMO] All presets shown, starting animation phase")
+                else:
+                    update_demo_mode_leds()
+            else:
+                # Animation phase just finished - go back to presets
+                demo_animation_phase = False
+                demo_preset_index = 0
+                print(f"[DEMO] Animation complete, back to presets")
+                update_demo_mode_leds()
+            
             demo_last_change_time = current_time
-            demo_tiltwave_triggered = False  # Reset flag for next transition
-            update_demo_mode_leds()
         elif demo_last_change_time is None:
-            # First time in demo mode
+            # First time in demo mode - start with preset phase
             demo_last_change_time = current_time
+            demo_animation_phase = False
+            demo_preset_index = 0
             update_demo_mode_leds()
         
-        # Trigger tiltwave on preset transition if not already triggered
-        if not demo_tiltwave_triggered and not tilt_wave_active:
+        # Trigger tiltwave if in animation phase
+        if demo_animation_phase and not tilt_wave_active:
             start_tilt_wave()
-            demo_tiltwave_triggered = True
     
     # Render LED updates based on priority (tiltwave has highest priority)
     if tilt_wave_active:
@@ -764,10 +781,9 @@ while True:
     elif guide_mode_active:
         # Guide mode overrides other LED rendering (except tiltwave)
         update_guide_mode_leds()
-    elif demo_mode_active:
-        # Demo mode displays preset colors when not animating
-        if not tilt_wave_active:
-            update_demo_mode_leds()
+    elif demo_mode_active and not demo_animation_phase:
+        # Demo mode displays preset colors (not during animation)
+        update_demo_mode_leds()
     elif gamepad_changed:
         # Only update normal LEDs if gamepad state changed
         update_leds()
