@@ -68,24 +68,24 @@ GAMEPAD_REPORT_DESCRIPTOR = bytes((
 ))
 
 supervisor.set_usb_identification(
-    manufacturer="BumbleGum",
-    product="CH-Guitar",
+    manufacturer="KATASAM-MODS",
+    product="KATASAM-Controller",
     vid=0x6997,
     pid=unique_pid
 )
 
 # Load device name from config.json
-device_name = "Guitar Controller"  # Default fallback
+device_name = "KATASAM Controller"  # Default fallback
 try:
     import json
     with open('config.json', 'r') as f:
         config = json.load(f)
-    device_name = config.get('device_name', 'Guitar Controller')
+    device_name = config.get('device_name', 'KATASAM Controller')
     print(f"Loaded device name from config: '{device_name}'")
 except Exception as e:
     print(f"Could not load device name from config, using default: {e}")
 
-usb_hid.set_interface_name(f"BumbleGum Guitars - {device_name}")
+usb_hid.set_interface_name(f"KATASAM-MODS - {device_name}")
 
 # Enable custom HID gamepad
 gamepad = usb_hid.Device(
