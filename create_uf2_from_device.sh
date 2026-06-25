@@ -70,7 +70,12 @@ mkdir -p dist
 if [ -z "$CUSTOM_FILENAME" ]; then
     OUTPUT_FILE="dist/Classic-v2.${FORMAT}"
 else
-    OUTPUT_FILE="$CUSTOM_FILENAME"
+    # If custom filename is provided without a path, put it in dist/
+    if [[ "$CUSTOM_FILENAME" != /* ]] && [[ "$CUSTOM_FILENAME" != dist/* ]]; then
+        OUTPUT_FILE="dist/$CUSTOM_FILENAME"
+    else
+        OUTPUT_FILE="$CUSTOM_FILENAME"
+    fi
 fi
 
 # If file exists, back it up with creation date
