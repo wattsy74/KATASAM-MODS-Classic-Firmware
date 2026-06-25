@@ -101,8 +101,9 @@ guide_mode_last_action_time = None  # Track last button press for timeout
 # Demo Mode State Variables
 demo_mode_active = False  # Flag for demo mode
 demo_preset_index = 0  # Current preset being displayed
-demo_last_change_time = None  # Track time for 5-second preset intervals
-DEMO_PRESET_INTERVAL = 5.0  # Change preset every 5 seconds
+demo_last_change_time = None  # Track time for preset intervals
+DEMO_PRESET_INTERVAL = 2.4  # Change preset every 2.4 seconds (tiltwave duration)
+demo_tiltwave_triggered = False  # Track if tiltwave was triggered on this transition
 
 # Tilt Wave Effect Variables - Enhanced for dynamic 7-LED effect
 tilt_wave_enabled = config.get("tilt_wave_enabled", True)
@@ -718,6 +719,7 @@ while time.monotonic() - demo_activation_time < demo_activation_duration:
         demo_mode_active = True
         demo_preset_index = 0
         demo_last_change_time = time.monotonic()
+        demo_tiltwave_triggered = False
         print("[BOOT] Demo mode activated! GREEN+ORANGE combo detected.")
         flash_white_leds(flash_count=2, flash_duration=0.15)
         break
@@ -737,16 +739,27 @@ while True:
     
     # PRIORITY 3: LED updates (lower priority, can be throttled)
     if demo_mode_active:
-        # Demo mode has highest priority - cycle through presets every 5 seconds
+        # Demo mode cycles through presets with tiltwave animation (2.4 seconds per preset)
         current_time = time.monotonic()
         if demo_last_change_time is not None and current_time - demo_last_change_time >= DEMO_PRESET_INTERVAL:
             # Time to change to next preset
             demo_preset_index = (demo_preset_index + 1) % len(standard_presets_list)
             demo_last_change_time = current_time
+            demo_tiltwave_triggered = False  # Reset flag for next transition
             update_demo_mode_leds()
         elif demo_last_change_time is None:
             # First time in demo mode
             demo_last_change_time = current_time
+            update_demo_mode_leds()
+        
+        # Trigger tiltwave on preset transition if not already triggered
+        if not demo_tiltwave_triggered and not tilt_wave_active:
+            start_tilt_wave()
+            demo_tiltwave_triggered = True
+        
+        # If tiltwave is active, it will render (has priority via main loop order)
+        # Otherwise show the demo preset colors
+        if not tilt_wave_active:
             update_demo_mode_leds()
     elif guide_mode_active:
         # Guide mode overrides all other LED rendering
